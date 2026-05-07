@@ -1,81 +1,514 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <script src="https://js.zohostatic.com/creator/widgets/version/2.0/widgetsdk.js"></script>
-    <script>
-        function reportupdate(){
-        ZOHO.CREATOR.init()
-        .then(function(data) {
-     
-          var invoice_number = document.getElementById("invoice_number").value;
-    
-             var config = {
-  appName: "e-invoicing-portal",
-  criteria: "Invoice_Number == \"" + invoice_number + "\"",
-  reportName: "All_Invoices"
-};
- 
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fisco Invoice Verifier</title>
 
-ZOHO.CREATOR.DATA.getRecords(config).then(function (response) {
-  console.log(response);
-  var formreset=document.getElementById("myform").reset();
-}).catch(function(error) {
-  console.error("Unable to fetch records", error);
-});
-        
-      });
-            }
-  </script>
-  </head>
+  <!-- JS API v2 — required for ZOHO.CREATOR.PUBLISH on public pages -->
+  <script src="https://js.zohostatic.com/creator/widgets/version/2.0/widgetsdk-min.js"></script>
+
   <style>
-  input[type=text], select {
-    width: 100%;
-    padding: 12px 20px;
-    margin: 8px 0;
-    display: inline-block;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
-  }
-  
-  input[type=submit] {
-    width: 100%;
-    background-color: #4CAF50;
-    color: white;
-    padding: 14px 20px;
-    margin: 8px 0;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  input[type=submit]:hover {
-    background-color: #45a049;
-  }
-  
-  div {
-    border-radius: 5px;
-    background-color: #f2f2f2;
-    padding: 20px;
-  }
-  
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #2ecc71;
+      --green-dark:  #27ae60;
+      --green-light: #eafaf1;
+      --red:         #e74c3c;
+      --red-light:   #fdf0ef;
+      --border:      #dfe6e9;
+      --label:       #7f8c8d;
+      --text:        #2c3e50;
+      --bg:          #f0f4f8;
+      --card:        #ffffff;
+      --shadow:      0 8px 32px rgba(44,62,80,0.13);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px 16px;
+    }
+
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 80%, rgba(46,204,113,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 80% at 80% 30%, rgba(41,128,185,0.14) 0%, transparent 60%),
+        linear-gradient(160deg, #1a3a4a 0%, #2d6a4f 40%, #1e4d6b 100%);
+      z-index: 0;
+    }
+    body::after {
+      content: ''; position: fixed; inset: 0;
+      background: repeating-linear-gradient(90deg, transparent 0px, rgba(255,255,255,0.03) 2px, transparent 4px);
+      animation: shimmer 6s linear infinite; z-index: 0;
+    }
+    @keyframes shimmer { from{background-position-y:0} to{background-position-y:200px} }
+
+    .card {
+      position: relative; z-index: 1;
+      background: var(--card); border-radius: 18px; box-shadow: var(--shadow);
+      width: 100%; max-width: 500px; overflow: hidden;
+      animation: cardIn 0.5s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    @keyframes cardIn {
+      from { opacity:0; transform: translateY(28px) scale(0.97); }
+      to   { opacity:1; transform: none; }
+    }
+
+    .logo-strip { display:flex; justify-content:center; padding:20px 0 0; }
+    .logo-circle {
+      width:64px; height:64px; border-radius:50%; background:#fff;
+      box-shadow:0 2px 12px rgba(0,0,0,0.15);
+      display:flex; align-items:center; justify-content:center;
+      overflow:hidden; border:3px solid #eee;
+    }
+    .logo-text {
+      font-family:'Barlow',sans-serif; font-size:11px; font-weight:700;
+      letter-spacing:0.14em; color:#27ae60; text-align:center; margin-top:2px;
+    }
+
+    .search-bar { display:flex; gap:8px; padding:20px 28px 0; }
+    .search-bar input {
+      flex:1; height:42px; border:1.5px solid var(--border); border-radius:8px;
+      padding:0 14px; font-family:inherit; font-size:14px; color:var(--text);
+      outline:none; transition:border-color 0.2s;
+    }
+    .search-bar input:focus { border-color:var(--green); }
+    .search-bar button {
+      height:42px; padding:0 18px; background:var(--green); color:#fff;
+      border:none; border-radius:8px; font-family:inherit; font-size:13px;
+      font-weight:600; cursor:pointer; transition:background 0.2s,transform 0.1s;
+      white-space:nowrap;
+    }
+    .search-bar button:hover  { background:var(--green-dark); }
+    .search-bar button:active { transform:scale(0.97); }
+
+    #debug-toggle {
+      display:none; margin:8px 28px 0; font-size:11px;
+      color:var(--label); cursor:pointer; text-decoration:underline;
+    }
+    #debug-panel {
+      display:none; margin:6px 28px 0; background:#1e1e2e; color:#a6e3a1;
+      border-radius:8px; padding:12px 14px; font-family:monospace; font-size:11px;
+      line-height:1.6; max-height:220px; overflow-y:auto; word-break:break-all;
+    }
+    #debug-panel strong { color:#cba6f7; }
+
+    .status-banner { text-align:center; padding:22px 28px 8px; }
+    .status-title { font-size:17px; font-weight:600; color:var(--text); margin-bottom:14px; }
+    .status-icon {
+      width:54px; height:54px; border-radius:50%;
+      display:inline-flex; align-items:center; justify-content:center; margin-bottom:4px;
+    }
+    .status-icon.valid   { background:var(--green-light); color:var(--green); }
+    .status-icon.invalid { background:var(--red-light);   color:var(--red); }
+    .status-icon svg { width:30px; height:30px; }
+
+    .fields { padding:16px 28px 8px; display:flex; flex-direction:column; gap:14px; }
+    .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+    .field label {
+      display:block; font-size:10px; font-weight:600;
+      letter-spacing:0.1em; color:var(--label); text-transform:uppercase; margin-bottom:5px;
+    }
+    .field .value {
+      background:#f8fafc; border:1.5px solid var(--border); border-radius:8px;
+      padding:10px 14px; font-size:14px; color:var(--text);
+      min-height:42px; word-break:break-word; line-height:1.4;
+    }
+
+    .related-label {
+      font-size:10px; font-weight:600; letter-spacing:0.1em;
+      color:var(--label); text-transform:uppercase; padding:0 28px; margin-top:4px;
+    }
+    .credit-note { margin:6px 28px 0; font-size:13px; font-weight:500; color:var(--red); }
+
+    .actions { padding:20px 28px; display:flex; flex-direction:column; gap:10px; }
+    .btn {
+      height:46px; border-radius:10px; font-family:'Barlow',sans-serif;
+      font-size:13px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;
+      cursor:pointer; transition:background 0.2s,transform 0.1s,box-shadow 0.2s;
+      border:none; width:100%;
+    }
+    .btn:active { transform:scale(0.98); }
+    .btn-outline { background:#fff; color:var(--green-dark); border:2px solid var(--green); }
+    .btn-outline:hover { background:var(--green-light); }
+
+    .footer {
+      border-top:1px solid var(--border); padding:12px 28px; text-align:center;
+      font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#aab;
+    }
+
+    .loading-dots span {
+      display:inline-block; width:8px; height:8px; border-radius:50%;
+      background:var(--green); margin:0 3px; animation:bounce 1s infinite;
+    }
+    .loading-dots span:nth-child(2) { animation-delay:0.15s; }
+    .loading-dots span:nth-child(3) { animation-delay:0.30s; }
+    @keyframes bounce {
+      0%,80%,100% { transform:translateY(0); opacity:0.6; }
+      40%          { transform:translateY(-8px); opacity:1; }
+    }
+
+    #error-msg {
+      font-size:13px; color:var(--red); background:var(--red-light);
+      border-left:3px solid var(--red); border-radius:6px;
+      padding:10px 14px; margin:10px 28px 0; display:none; line-height:1.5;
+    }
+
+    #result { display:none; }
   </style>
-  <body>
-    <h2>Form to update a report</h2>
+</head>
+<body>
+
+<div class="card">
+
+  <div class="logo-strip">
     <div>
-      <form id="myform">
-  
-
-        <label for="invoice_number">Invoice Number</label>
-        <input type="text" id="invoice_number" name="invoice_number" placeholder="Enter Invoice Number..">    
-
-
-        <input type="button" value="submit" onClick="reportupdate()">
-        
-    
-      </form>
-      
+      <div class="logo-circle">
+        <svg viewBox="0 0 52 52" fill="none">
+          <circle cx="26" cy="26" r="24" fill="#27ae60" opacity="0.12"/>
+          <text x="26" y="34" text-anchor="middle" font-size="22" font-family="Barlow,sans-serif" font-weight="700" fill="#27ae60">F</text>
+        </svg>
+      </div>
+      <div class="logo-text">Fisco</div>
     </div>
-    
-  </body>
+  </div>
+
+  <div class="search-bar">
+    <input id="record-id" type="text" placeholder="Invoice Number or Record ID" />
+    <button id="verify-btn">Verify</button>
+  </div>
+
+  <div id="error-msg"></div>
+  <div id="debug-toggle">▶ Show raw field names (for debugging)</div>
+  <div id="debug-panel"></div>
+
+  <div id="loading" style="text-align:center;padding:28px 0;display:none;">
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+    <p style="font-size:13px;color:#7f8c8d;margin-top:10px;">Fetching invoice…</p>
+  </div>
+
+  <div id="result">
+    <div class="status-banner">
+      <div class="status-title" id="status-title">Invoice is valid</div>
+      <div class="status-icon valid" id="status-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="fields">
+      <div class="field"><label>Taxpayer Name</label><div class="value" id="f-taxpayer"></div></div>
+      <!-- <div class="field"><label>Trade Name</label><div class="value" id="f-trade"></div></div> -->
+      <div class="field"><label>Address</label><div class="value" id="f-address"></div></div>
+      <div class="row2">
+        <div class="field"><label>Invoice Date and Time</label><div class="value" id="f-date"></div></div>
+        <div class="field"><label>Invoice Number</label><div class="value" id="f-number"></div></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Invoice Total Amount</label><div class="value" id="f-amount"></div></div>
+        <div class="field"><label>Currency</label><div class="value" id="f-currency"></div></div>
+      </div>
+    </div>
+
+    <div class="related-label">Related Documents</div>
+    <div class="credit-note" id="f-credit" style="display:none;"></div>
+
+    <div class="actions">
+      <button class="btn btn-outline" id="complaint-btn">Submit a Complaint</button>
+    </div>
+  </div>
+
+  <div class="footer">My Taxes, My Duties: Building My Country</div>
+</div>
+
+<script>
+  // ── Config ─────────────────────────────────────────────────────────────────
+  var APP_NAME     =  "e-invoicing-portal";
+  var REPORT_NAME  =   "All_Invoices";
+  var PRIVATE_LINK = "y4NNwyWD4K14xvBbKMs30MPj3quQhkqjX7bhn5MO9UygefJyrSzQfxAQT3U9dJ4zh9nxPZXNnOvKKKP2Ya6HYZz5eE33BJda1FR2";
+  // ──────────────────────────────────────────────────────────────────────────
+
+  var currentRecord = null;
+  var debugOpen     = false;
+  var zohoReady     = false;
+
+  // Poll until ZOHO.CREATOR.PUBLISH is defined (SDK loads async inside iframe)
+  function waitForZOHO(cb) {
+    if (typeof ZOHO !== "undefined" && ZOHO.CREATOR && ZOHO.CREATOR.PUBLISH) {
+      zohoReady = true;
+      cb();
+    } else {
+      setTimeout(function() { waitForZOHO(cb); }, 50);
+    }
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────────────────────
+  function showError(msg) {
+    var el = document.getElementById("error-msg");
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+  function hideError() { document.getElementById("error-msg").style.display = "none"; }
+  function set(id, val) { document.getElementById(id).textContent = val || "—"; }
+  function escHtml(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // Try multiple key name variants in priority order
+  function pick(record) {
+    return function() {
+      for (var i = 0; i < arguments.length; i++) {
+        var v = record[arguments[i]];
+        if (v !== undefined && v !== null && v !== "") return v;
+      }
+      return null;
+    };
+  }
+
+  // ── Debug panel ────────────────────────────────────────────────────────────
+  function showDebugToggle(record) {
+    var panel  = document.getElementById("debug-panel");
+    var toggle = document.getElementById("debug-toggle");
+    var lines  = ["<strong>Exact keys from Zoho — if a field shows — these are the real names:</strong>"];
+    Object.keys(record).sort().forEach(function(k) {
+      var v = record[k];
+      lines.push("<strong>" + escHtml(k) + "</strong>: " +
+        escHtml(typeof v === "object" ? JSON.stringify(v) : String(v)));
+    });
+    panel.innerHTML = lines.join("\n");
+    toggle.style.display = "block";
+  }
+
+  document.getElementById("debug-toggle").addEventListener("click", function() {
+    debugOpen = !debugOpen;
+    document.getElementById("debug-panel").style.display = debugOpen ? "block" : "none";
+    this.textContent = (debugOpen ? "▼" : "▶") + " Show raw field names (for debugging)";
+  });
+
+  // ── Populate result ────────────────────────────────────────────────────────
+  function populateResult(record) {
+    currentRecord = record;
+    showDebugToggle(record);
+
+    var f = pick(record);
+    var statusVal = f("Status", "status") || "";
+    var isValid   = statusVal.toLowerCase() !== "invalid";
+
+    document.getElementById("status-title").textContent =
+      isValid ? "Invoice is valid" : "Invoice is invalid";
+
+    var icon = document.getElementById("status-icon");
+    icon.className = "status-icon " + (isValid ? "valid" : "invalid");
+    icon.innerHTML = isValid
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+
+    set("f-taxpayer", f("Taxpayer_Name","Taxpayer Name","taxpayer_name","TaxpayerName"));
+    // set("f-trade",    f("Trade_Name","Trade Name","trade_name","TradeName"));
+    set("f-address",  f("Address","address","Business_Address","Business Address"));
+    set("f-date",     f("Invoice_Date_and_Time","Invoice Date and Time","Invoice_Date","Invoice Date","invoice_date"));
+    set("f-number",   f("Invoice_Number","Invoice Number","invoice_number","InvoiceNumber"));
+    set("f-amount",   f("Invoice_Total_Amount","Invoice Total Amount","invoice_total_amount","Total_Amount","Total Amount"));
+    set("f-currency", f("Currency","currency","Invoice_Currency","Invoice Currency","CURRENCY"));
+
+    // If record_id was passed via URL, the search bar was hidden.
+    // Now that we have the record, reveal the bar showing the invoice number instead.
+    var searchBar = document.querySelector(".search-bar");
+    if (searchBar && searchBar.style.display === "none") {
+      var invoiceVal = f("Invoice_Number","Invoice Number","invoice_number","InvoiceNumber");
+      document.getElementById("record-id").value = invoiceVal || "";
+      document.getElementById("record-id").placeholder = "Invoice Number";
+      searchBar.style.display = "flex";
+    }
+
+    var creditAmt = f("Credit_Note_Amount","Credit Note Amount","credit_note_amount");
+    var currency  = f("Currency","currency") || "USD";
+    var creditEl  = document.getElementById("f-credit");
+    if (creditAmt) {
+      creditEl.textContent = "Has credit note(s) for total amount of " + creditAmt + " " + currency;
+      creditEl.style.display = "block";
+    } else {
+      creditEl.style.display = "none";
+    }
+  }
+
+  // ── Fetch — no criteria sent, filtering done client-side ─────────────────
+  //
+  // Zoho Publish API returns 2898 "Permission denied" when criteria is used
+  // on certain report types. Workaround: fetch all records, match in JS.
+  //
+  // searchVal  = the raw value (invoice number or record ID string)
+  // searchType = "invoice" | "id"
+
+  function runFetch(searchVal, searchType) {
+    if (!zohoReady) { showError("SDK still loading — please try again in a moment."); return; }
+
+    hideError();
+    document.getElementById("debug-panel").style.display = "none";
+    document.getElementById("debug-toggle").style.display = "none";
+    debugOpen = false;
+    document.getElementById("loading").style.display = "block";
+    document.getElementById("result").style.display  = "none";
+
+    // No criteria in the config — we filter the response ourselves
+    var config = {
+      app_name:     APP_NAME,
+      report_name:  REPORT_NAME,
+      private_link: PRIVATE_LINK,
+      field_config: "all",
+      max_records:  200
+    };
+
+    console.log("[Fisco] PUBLISH.getRecords (client-side filter):", JSON.stringify(config));
+    console.log("[Fisco] Looking for", searchType, "=", searchVal);
+
+    ZOHO.CREATOR.PUBLISH.getRecords(config)
+      .then(function(response) {
+        document.getElementById("loading").style.display = "none";
+        console.log("[Fisco] Response code:", response.code,
+                    "| Records returned:", response.data ? response.data.length : 0);
+
+        if (response.code !== 3000) {
+          var msg = "API error " + response.code;
+          if (response.message) msg += ": " + response.message;
+          console.error("[Fisco] Full response:", JSON.stringify(response));
+          showError(msg);
+          return;
+        }
+
+        var records  = response.data || [];
+        var valLower = searchVal.toLowerCase();
+        var match    = null;
+
+        for (var i = 0; i < records.length; i++) {
+          var r = records[i];
+          if (searchType === "id") {
+            if (String(r.ID) === searchVal) { match = r; break; }
+          } else {
+            // Try every known key variant for the invoice number field
+            var inv = r.Invoice_Number
+                   || r["Invoice Number"]
+                   || r.invoice_number
+                   || r.InvoiceNumber
+                   || "";
+            if (String(inv).toLowerCase() === valLower) { match = r; break; }
+          }
+        }
+
+        if (match) {
+          document.getElementById("result").style.display = "block";
+          populateResult(match);
+        } else {
+          showError("No invoice found for: " + searchVal);
+        }
+      })
+      .catch(function(err) {
+        document.getElementById("loading").style.display = "none";
+        var detail = (err && err.message) ? err.message
+                   : (typeof err === "string") ? err
+                   : (function(){ try{ return JSON.stringify(err); } catch(e){ return String(err); } })();
+        console.error("[Fisco] Caught:", err);
+        showError("Error: " + (detail || "Unknown — check browser console F12."));
+      });
+  }
+
+  // Called by Verify button / Enter key.
+  // Pure digits → treat as Zoho record ID. Anything else → invoice number.
+  function fetchInvoice() {
+    var val = document.getElementById("record-id").value.trim();
+    if (!val) { showError("Please enter an Invoice Number or Record ID."); return; }
+    runFetch(val, /^\d+$/.test(val) ? "id" : "invoice");
+  }
+
+  // ── Event listeners ────────────────────────────────────────────────────────
+  document.getElementById("verify-btn").addEventListener("click", fetchInvoice);
+
+  document.getElementById("record-id").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") fetchInvoice();
+  });
+
+  document.getElementById("complaint-btn").addEventListener("click", function() {
+    var ref = currentRecord
+      ? (currentRecord.Invoice_Number || currentRecord["Invoice Number"] || "")
+      : "";
+    window.open(
+      "mailto:complaints@Fisco.gov?subject=Invoice%20Complaint%20-%20" + encodeURIComponent(ref),
+      "_blank"
+    );
+  });
+
+  // ── Auto-verify helper ─────────────────────────────────────────────────────
+  function autoVerifyFromParams(params) {
+    console.log("[Fisco] All params received:", JSON.stringify(params));
+
+    var recordId   = params.record_id    || params.record_ID    || params.recordId    || null;
+    var invoiceNum = params.invoice_number || params.Invoice_Number || params.invoiceNumber || null;
+
+    if (recordId) {
+      console.log("[Fisco] Auto-verifying by record_id:", recordId);
+      // Hide the search bar — user must not see the raw record ID
+      document.querySelector(".search-bar").style.display = "none";
+      document.getElementById("record-id").value = recordId;
+      runFetch(String(recordId), "id");
+      // populateResult() will un-hide the bar and fill it with the invoice number
+
+    } else if (invoiceNum) {
+      console.log("[Fisco] Auto-verifying by invoice_number:", invoiceNum);
+      document.getElementById("record-id").value = invoiceNum;
+      runFetch(String(invoiceNum), "invoice");
+
+    } else {
+      console.log("[Fisco] No params — waiting for manual input.");
+    }
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  //
+  // IMPORTANT: Inside a Zoho widget iframe, window.location belongs to the
+  // widget's own sandboxed URL — it cannot see the parent page-perma URL params.
+  //
+  // The correct way to read page params from inside a widget is:
+  //   ZOHO.CREATOR.UTIL.getQueryParams()   ← v1 SDK (synchronous object)
+  //   ZOHO.CREATOR.UTIL.getQueryParams()   ← v2 SDK (returns a Promise)
+  //
+  // We are on v2, so it returns a Promise. We also try window.location as a
+  // last fallback for any edge-case environments.
+
+  waitForZOHO(function() {
+    console.log("[Fisco] SDK ready");
+
+    // Primary: use SDK getQueryParams (reads parent page URL params correctly)
+    ZOHO.CREATOR.UTIL.getQueryParams()
+      .then(function(params) {
+        console.log("[Fisco] getQueryParams result:", JSON.stringify(params));
+        autoVerifyFromParams(params || {});
+      })
+      .catch(function(err) {
+        console.warn("[Fisco] getQueryParams failed, falling back to window.location:", err);
+
+        // Fallback: try reading from window.location (works if widget is opened directly)
+        var search   = window.location.search || "";
+        var hash     = window.location.hash   || "";
+        var hashQ    = hash.indexOf("?") !== -1 ? hash.slice(hash.indexOf("?")) : "";
+        var combined = search + (search ? "&" : "?") + hashQ.replace("?","");
+        var invMatch = combined.match(/[?&]invoice_number=([^&]+)/i);
+        var recMatch = combined.match(/[?&]record_id=([^&]+)/i);
+
+        autoVerifyFromParams({
+          invoice_number: invMatch ? decodeURIComponent(invMatch[1]) : null,
+          record_id:      recMatch ? decodeURIComponent(recMatch[1]) : null
+        });
+      });
+  });
+</script>
+</body>
 </html>
